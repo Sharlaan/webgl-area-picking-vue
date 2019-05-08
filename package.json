@@ -1,0 +1,32 @@
+{
+  "name": "webgl-area-picking-vue",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "vue-cli-service serve --open",
+    "build": "vue-cli-service build",
+    "lint:original": "vue-cli-service lint",
+    "lint": "prettier-tslint fix 'src/**/*.ts'"
+  },
+  "dependencies": {
+    "core-js": "2.6.5",
+    "detector-webgl": "^2.0.0",
+    "three": "^0.104.0",
+    "vue": "^2.6.10",
+    "vue-class-component": "^7.1.0",
+    "vue-color": "^2.7.0",
+    "vue-gl": "^0.12.2",
+    "vue-property-decorator": "^8.1.1"
+  },
+  "devDependencies": {
+    "@types/vue-color": "^2.4.2",
+    "@vue/cli-plugin-babel": "^3.7.0",
+    "@vue/cli-plugin-typescript": "^3.7.0",
+    "@vue/cli-service": "^3.7.0",
+    "node-sass": "^4.12.0",
+    "prettier-tslint": "^0.4.2",
+    "sass-loader": "^7.1.0",
+    "typescript": "^3.4.5",
+    "vue-template-compiler": "^2.6.10"
+  }
+}

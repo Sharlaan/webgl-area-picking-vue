@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>VueJS - Three.js - WebGL</title>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+    />
+  </head>
+  <body>
+    <h1>
+      Tests with Vue-GL
+      <a href="https://vue-gl.github.io/vue-gl" target="_blank" rel="noopener">(docs)</a>
+      <a href="https://github.com/vue-gl/vue-gl" target="_blank" rel="noopener">
+        <img height="40" src="./Octocat.jpg" alt="Link to Github repository" />
+      </a>
+    </h1>
+
+    <!-- dependencies -->
+    <script src="https://unpkg.com/vue"></script>
+    <script src="https://unpkg.com/vue-async-computed"></script>
+    <script src="https://unpkg.com/vue-color"></script>
+    <script src="https://unpkg.com/three"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+    <!-- https://github.com/silviopaganini/orbit-controls-es6 -->
+    <script src="https://threejs.org/examples/js/loaders/STLLoader.js"></script>
+    <!-- <script src="https://unpkg.com/three-stl-loader"></script> -->
+    <!-- NOTE: STLLoader can be found as module from https://github.com/enspiral-cherubi/three-stl-loader -->
+
+    <!-- load components -->
+    <script src="https://unpkg.com/vue-gl"></script>
+
+    <script>
+      // Checks for WebGL v1.0 in Browser / Graphic Card
+      // source: https://threejs.org/examples/js/WebGL.js
+      function isWebGLAvailable() {
+        try {
+          const canvas = document.createElement('canvas');
+          return !!(
+            window.WebGLRenderingContext &&
+            (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+          );
+        } catch (error) {
+          return false;
+        }
+      }
+
+      function getWebGLErrorMessage() {
+        const version = 1;
+
+        const names = {
+          1: 'WebGL',
+          2: 'WebGL 2',
+        };
+
+        const contexts = {
+          1: window.WebGLRenderingContext,
+          2: window.WebGL2RenderingContext,
+        };
+
+        const platform = contexts[version] ? 'graphics card' : 'browser';
+
+        const message = `Your ${platform} does not seem to support <a href="http://khronos.org/webgl/wiki/Getting_a_WebGL_Implementation" style="color:#000">${
+          names[version]
+        }</a>`;
+
+        const element = document.createElement('div');
+        element.id = 'webglmessage';
+        element.style.fontFamily = 'monospace';
+        element.style.fontSize = '13px';
+        element.style.fontWeight = 'normal';
+        element.style.textAlign = 'center';
+        element.style.background = '#fff';
+        element.style.color = '#000';
+        element.style.padding = '1.5em';
+        element.style.width = '400px';
+        element.style.margin = '5em auto 0';
+
+        element.innerHTML = message;
+
+        return element;
+      }
+    </script>
+
+    <!-- register components and start vue -->
+    <script>
+      Object.keys(VueGL).forEach((name) => {
+        Vue.component(name, VueGL[name]);
+      });
+    </script>
+
+    <div id="app">
+      <aside class="control-panel">
+        <section>
+          <div class="section-title">
+            <h3>Model</h3>
+            <button type="button" @click="showColorPicker = !showColorPicker">
+              <span v-if="!showColorPicker">Color Picker</span>
+              <span v-else>Hide</span>
+            </button>
+          </div>
+
+          <label
+            >X
+            <input
+              type="range"
+              v-model="modelPosition.x"
+              :min="-groundSize/2"
+              :max="groundSize/2"
+              step="0.25"
+            />
+          </label>
+          <label
+            >Y
+            <input
+              type="range"
+              v-model="modelPosition.y"
+              :min="0"
+              :max="groundSize/2"
+              step="0.25"
+            />
+          </label>
+          <label
+            >Z
+            <input
+              type="range"
+              v-model="modelPosition.z"
+              :min="-groundSize/2"
+              :max="groundSize/2"
+              step="0.25"
+            />
+          </label>
+          <label
+            >RotX<input type="range" v-model="modelRotation.x" min="-90" max="90" step="10"
+          /></label>
+          <label
+            >RotY<input type="range" v-model="modelRotation.y" min="-90" max="90" step="10"
+          /></label>
+          <label
+            >RotZ<input type="range" v-model="modelRotation.z" min="-90" max="90" step="10"
+          /></label>
+        </section>
+
+        <section>
+          <div class="section-title">
+            <h3>Camera</h3>
+            <button type="button" @click="reset">Reset</button>
+          </div>
+          <label
+            >Zoom
+            <input type="range" v-model="zoom" min="0.1" max="5" step="0.25" />
+          </label>
+          <label
+            >X
+            <input
+              type="range"
+              v-model="cameraPosition.x"
+              :min="-groundSize/2"
+              :max="groundSize/2"
+              step="0.25"
+            />
+          </label>
+          <label
+            >Y
+            <input
+              type="range"
+              v-model="cameraPosition.y"
+              min="0"
+              :max="groundSize/2"
+              step="0.25"
+            />
+          </label>
+          <label
+            >Z
+            <input
+              type="range"
+              v-model="cameraPosition.z"
+              :min="-groundSize/2"
+              :max="groundSize/2"
+              step="0.25"
+            />
+          </label>
+          <label
+            >RotX<input type="range" v-model="cameraRotation.x" min="-180" max="180" step="10"
+          /></label>
+          <label
+            >RotY<input type="range" v-model="cameraRotation.y" min="-180" max="180" step="10"
+          /></label>
+          <label
+            >RotZ<input type="range" v-model="cameraRotation.z" min="-180" max="180" step="10"
+          /></label>
+        </section>
+      </aside>
+
+      <section class="webgl-container">
+        <div class="color-picker" v-if="showColorPicker">
+          <slider-picker :value="modelColor" @input="updateModelColor"></slider-picker>
+          <material-picker :value="modelColor" @input="updateModelColor"></material-picker>
+        </div>
+
+        <vgl-renderer antialias>
+          <vgl-scene>
+            <!-- Model -->
+            <vgl-geometry
+              name="modelGeometry"
+              :position-attribute="geometry.position"
+              :normal-attribute="geometry.normal"
+            ></vgl-geometry>
+            <vgl-mesh-phong-material
+              name="modelMaterial"
+              :color="modelColor"
+              shininess="200"
+              specular="#111111"
+            ></vgl-mesh-phong-material>
+            <vgl-mesh
+              geometry="modelGeometry"
+              material="modelMaterial"
+              cast-shadow
+              receive-shadow
+              :position="modelPositionVector"
+              :rotation="modelRotationVector"
+            >
+              <vgl-axes-helper size="1"></vgl-axes-helper
+            ></vgl-mesh>
+
+            <!-- Ground -->
+            <vgl-plane-geometry
+              name="groundGeometry"
+              :width="groundSize"
+              :height="groundSize"
+            ></vgl-plane-geometry>
+            <vgl-mesh-phong-material
+              name="groundMaterial"
+              color="#999999"
+              specular="#101010"
+            ></vgl-mesh-phong-material>
+            <vgl-mesh
+              geometry="groundGeometry"
+              material="groundMaterial"
+              receive-shadow
+              position="0 -0.5 0"
+              :rotation="`${groundRotX} 0 0`"
+            >
+              <vgl-grid-helper
+                :rotation="`${groundRotX} 0 0`"
+                :size="groundSize"
+                :divisions="groundSize"
+                :color-center-line="colorCenterLine"
+                :color-grid="colorGrid"
+              ></vgl-grid-helper>
+            </vgl-mesh>
+
+            <vgl-hemisphere-light color="#443333" ground-color="#111122"></vgl-hemisphere-light>
+            <vgl-directional-light position="1 1 1" cast-shadow></vgl-directional-light>
+            <vgl-axes-helper :size="groundSize/2"></vgl-axes-helper>
+          </vgl-scene>
+
+          <vgl-perspective-camera
+            name="cmr0"
+            fov="35"
+            :zoom="zoom"
+            :orbit-target="modelPositionVector"
+            :position="cameraPositionVector"
+            :rotation="cameraRotationVector"
+          ></vgl-perspective-camera>
+
+          <orbit-controls camera="cmr0"></orbit-controls>
+        </vgl-renderer>
+      </section>
+    </div>
+
+    <script>
+      Vue.component('OrbitControls', {
+        inject: ['vglNamespace'],
+        props: ['camera'],
+        computed: {
+          cmr() {
+            return this.vglNamespace.cameras[this.camera];
+          },
+        },
+        watch: {
+          cmr: {
+            handler(cmr) {
+              const controls = new THREE.OrbitControls(cmr);
+              controls.addEventListener('change', () => this.vglNamespace.update());
+            },
+            immediate: true,
+          },
+        },
+        render(h) {
+          return h('div');
+        },
+      });
+    </script>
+
+    <script>
+      function initialState() {
+        return {
+          modelPosition: { x: 0, y: 0, z: 0 },
+          modelRotation: { x: 0, y: 0, z: 0 },
+          cameraPosition: { x: -2, y: 1, z: 3 },
+          cameraRotation: { x: 0, y: 0, z: 0 },
+          zoom: 1,
+        };
+      }
+
+      new Vue({
+        el: '#app',
+        components: {
+          'material-picker': VueColor.Material,
+          'slider-picker': VueColor.Slider,
+        },
+        data() {
+          return {
+            // Initialisation params from persisted config JSON
+            groundSize: 20,
+            groundRotX: -Math.PI / 2,
+            stlModelURL: 'https://threejs.org/examples/models/stl/ascii/slotted_disk.stl',
+            modelColor: '#409DBF',
+            showColorPicker: false,
+            ...initialState(),
+          };
+        },
+        computed: {
+          colorCenterLine() {
+            // return rgb2hex(cr, cg, cb);
+            return '';
+          },
+          colorGrid() {
+            // return rgb2hex(gr, gg, gb);
+            return '';
+          },
+          modelPositionVector() {
+            return new THREE.Vector3(
+              this.modelPosition.x,
+              this.modelPosition.y,
+              this.modelPosition.z,
+            );
+          },
+          modelRotationVector() {
+            const { x, y, z } = this.modelRotation;
+            return `
+          ${this.degrees2radians(x)}
+          ${this.degrees2radians(y)}
+          ${this.degrees2radians(z)}`;
+          },
+          cameraPositionVector() {
+            return new THREE.Vector3(
+              this.cameraPosition.x,
+              this.cameraPosition.y,
+              this.cameraPosition.z,
+            );
+          },
+          cameraRotationVector() {
+            const { x, y, z } = this.cameraRotation;
+            return `
+          ${this.degrees2radians(x)}
+          ${this.degrees2radians(y)}
+          ${this.degrees2radians(z)}`;
+          },
+        },
+        asyncComputed: {
+          geometry: {
+            default: { position: [], normal: [] },
+            get() {
+              return new Promise((resolve, reject) => {
+                const onLoad = (bufferGeometry) =>
+                  resolve({
+                    position: Array.from(bufferGeometry.attributes.position.array),
+                    normal: Array.from(bufferGeometry.attributes.normal.array),
+                  });
+                const onProgress = ({ loaded, total }) =>
+                  console.info('progress', ((loaded / total) * 100).toFixed(2) + '%');
+                const onError = (error) => reject(error);
+                new THREE.STLLoader().load(this.stlModelURL, onLoad, onProgress, onError);
+              });
+            },
+          },
+        },
+        methods: {
+          degrees2radians: (degrees) => degrees * (Math.PI / 180),
+          rgb2hex: (r, g, b) =>
+            `#${[r, g, b]
+              .map((v) => parseInt(v).toString(16))
+              .map((v) => (v.length < 2 ? '0' + v : v))
+              .join('')}`,
+          updateModelColor(color) {
+            // console.log({color});
+            this.modelColor = color.hex;
+          },
+          reset() {
+            Object.assign(this.$data, initialState());
+          },
+        },
+      });
+    </script>
+
+    <style>
+      :root {
+        --panel-width: 250px;
+      }
+
+      #app {
+        display: flex;
+        margin-bottom: 40px;
+        height: 600px;
+      }
+
+      h1 {
+        text-align: center;
+      }
+
+      .section-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      h3 {
+        margin: 0;
+      }
+
+      .control-panel {
+        display: flex;
+        flex-direction: column;
+        font-family: 'Open Sans', 'Helvetica Neue', 'sans-serif';
+        background: darkslategrey;
+        color: white;
+        padding: 20px;
+        height: calc(100% - 40px);
+        overflow-y: scroll;
+      }
+
+      .webgl-container {
+        position: relative;
+        width: calc(100% - var(--panel-width));
+      }
+
+      .webgl-container > div {
+        height: 100%;
+      }
+
+      .color-picker {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 20px;
+        display: flex;
+      }
+
+      .vc-material {
+        margin-left: 20px;
+      }
+
+      label {
+        display: flex;
+        align-items: center;
+      }
+
+      label > input {
+        margin-left: 20px;
+      }
+
+      label + label,
+      section + section {
+        margin-top: 20px;
+      }
+    </style>
+  </body>
+</html>
