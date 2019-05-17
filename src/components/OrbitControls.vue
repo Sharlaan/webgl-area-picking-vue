@@ -1,5 +1,4 @@
-<template>
-</template>
+<template></template>
 
 <script lang="ts">
   import { Component, Inject, Prop, Vue, Watch } from 'vue-property-decorator';
@@ -14,12 +13,16 @@
     @Prop() public readonly camera!: Camera;
 
     public get cmr() {
+      // @ts-ignore
       return this.vglNamespace.cameras[this.camera];
     }
 
     @Watch('cmr', { immediate: true })
     public handler(cmr: Camera) {
-      const controls = new OrbitControls(cmr);
+      // @ts-ignore
+      const threeContainer = this.vglNamespace.renderers[0].inst.domElement;
+      const controls = new OrbitControls(cmr, threeContainer);
+      // @ts-ignore
       controls.addEventListener('change', () => this.vglNamespace.update());
     }
   }
