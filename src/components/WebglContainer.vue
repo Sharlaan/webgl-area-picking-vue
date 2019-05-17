@@ -5,7 +5,7 @@
       <material-picker :value="modelColor" @input="updateModelColor"></material-picker>
     </div>
 
-    <vgl-renderer antialias style="height: 100%">
+    <vgl-renderer ref="renderer" antialias style="height: 100%">
       <vgl-scene name="scene">
         <!-- Model -->
         <vgl-geometry
@@ -78,6 +78,8 @@
 </template>
 
 <script lang="ts">
+// @ts-ignore
+import AsyncComputed from 'vue-async-computed';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 import { Material, Slider } from 'vue-color';
 import { BufferGeometry, LoadingManager, Vector3 } from 'three';
@@ -85,6 +87,8 @@ import { BufferGeometry, LoadingManager, Vector3 } from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 
 import OrbitControls from './OrbitControls.vue';
+
+Vue.use(AsyncComputed);
 
 interface IColors {
   hex: string;
@@ -111,7 +115,7 @@ function initialState() {
   },
 })
 export default class WebglContainer extends Vue {
-  public geometry: { position: number[]; normal: number[]; } = { position: [], normal: [] };
+  // public geometry: { position: number[]; normal: number[]; } = { position: [], normal: [] };
   public groundSize = 20;
   public groundRotX = -Math.PI / 2;
   public stlModelURL = 'https://threejs.org/examples/models/stl/ascii/slotted_disk.stl';
@@ -125,7 +129,7 @@ export default class WebglContainer extends Vue {
 
   public mounted() {
     Object.assign(this, initialState());
-    this.loadModel();
+    // this.loadModel();
   }
 
   // Computed
@@ -197,21 +201,39 @@ export default class WebglContainer extends Vue {
     Object.assign(this, initialState());
   }
 
-  public loadModel() {
-    const onLoad = (bufferGeometry: BufferGeometry) => {
-      this.geometry = {
-        position: Array.from(bufferGeometry.attributes.position.array),
-        normal: Array.from(bufferGeometry.attributes.normal.array),
-      };
-      // hide loading component;
-    };
-    const onProgress = ({ loaded, total }: ProgressEvent) =>
-      // show loading component;
-      // tslint:disable-next-line:no-console
-      console.info('progress', ((loaded / total) * 100).toFixed(2) + '%');
-    const onError = (error: ErrorEvent) => console.error({ error });  // hide loading component;
+  // public loadModel() {
+  //   const onLoad = (bufferGeometry: BufferGeometry) => {
+  //     this.geometry = {
+  //       position: Array.from(bufferGeometry.attributes.position.array),
+  //       normal: Array.from(bufferGeometry.attributes.normal.array),
+  //     };
+  //     // hide loading component;
+  //   };
+  //   const onProgress = ({ loaded, total }: ProgressEvent) =>
+  //     // show loading component;
+  //     // tslint:disable-next-line:no-console
+  //     console.info('progress', ((loaded / total) * 100).toFixed(2) + '%');
+  //   const onError = (error: ErrorEvent) => console.error({ error });  // hide loading component;
 
-    new STLLoader().load(this.stlModelURL, onLoad, onProgress, onError);
+  //   new STLLoader().load(this.stlModelURL, onLoad, onProgress, onError);
+  // }
+
+  @AsyncComputed({
+    default: { position: [], normal: [] },
+  })
+  public async geometry() {
+    return new Promise((resolve, reject) => {
+      const onLoad = (bufferGeometry: BufferGeometry) =>
+        resolve({
+          position: Array.from(bufferGeometry.attributes.position.array),
+          normal: Array.from(bufferGeometry.attributes.normal.array),
+        });
+      const onProgress = ({ loaded, total }: ProgressEvent) =>
+        // tslint:disable-next-line:no-console
+        console.info('progress', ((loaded / total) * 100).toFixed(2) + '%');
+      const onError = (error: ErrorEvent) => reject(error);
+      new STLLoader().load(this.stlModelURL, onLoad, onProgress, onError);
+    });
   }
 }
 </script>

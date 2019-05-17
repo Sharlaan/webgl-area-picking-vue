@@ -282,7 +282,8 @@
         watch: {
           cmr: {
             handler(cmr) {
-              const controls = new THREE.OrbitControls(cmr);
+              const threeContainer = this.vglNamespace.renderers[0].inst.domElement;
+              const controls = new THREE.OrbitControls(cmr, threeContainer);
               controls.addEventListener('change', () => this.vglNamespace.update());
             },
             immediate: true,
