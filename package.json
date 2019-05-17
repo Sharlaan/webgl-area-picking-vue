@@ -13,7 +13,7 @@
     "detector-webgl": "^2.0.0",
     "three": "^0.104.0",
     "vue": "^2.6.10",
-    "vue-async-computed": "^3.6.1",
+    "vue-async-computed": "https://github.com/saraedum/vue-async-computed.git#5debb7dcd81f52183be55e05b866fc43278a990",
     "vue-class-component": "^7.1.0",
     "vue-color": "^2.7.0",
     "vue-gl": "^0.12.2",

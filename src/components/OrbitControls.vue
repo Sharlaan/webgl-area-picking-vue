@@ -14,14 +14,12 @@
     @Prop() public readonly camera!: Camera;
 
     public get cmr() {
-      // @ts-ignore
       return this.vglNamespace.cameras[this.camera];
     }
 
     @Watch('cmr', { immediate: true })
     public handler(cmr: Camera) {
       const controls = new OrbitControls(cmr);
-      // @ts-ignore
       controls.addEventListener('change', () => this.vglNamespace.update());
     }
   }

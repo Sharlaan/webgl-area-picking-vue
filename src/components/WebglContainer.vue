@@ -78,17 +78,30 @@
 </template>
 
 <script lang="ts">
-// @ts-ignore
-import AsyncComputed from 'vue-async-computed';
+import VueAsyncComputed, { IAsyncComputedProperty } from 'vue-async-computed';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 import { Material, Slider } from 'vue-color';
 import { BufferGeometry, LoadingManager, Vector3 } from 'three';
-// @ts-ignore
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
+import { createDecorator, VueDecorator } from 'vue-class-component';
 
 import OrbitControls from './OrbitControls.vue';
 
-Vue.use(AsyncComputed);
+Vue.use(VueAsyncComputed);
+
+type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+
+function AsyncComputed<T>(computedOptions?: Omit<IAsyncComputedProperty<T>, 'get'>): VueDecorator {
+  return createDecorator((options, key) => {
+    options.asyncComputed = options.asyncComputed || {};
+    const method = options.methods![key];
+    options.asyncComputed[key] = {
+      get: method,
+      ...computedOptions,
+    } as IAsyncComputedProperty<T>;
+    delete options.methods![key];
+  });
+}
 
 interface IColors {
   hex: string;
