@@ -7697,10 +7697,9 @@ vm-browserify@0.0.4:
   dependencies:
     indexof "0.0.1"
 
-vue-async-computed@^3.6.1:
-  version "3.6.1"
-  resolved "https://registry.yarnpkg.com/vue-async-computed/-/vue-async-computed-3.6.1.tgz#6b790e2125347c678d1b82b10a5b03b41d7b86d0"
-  integrity sha512-8FFDTqfdvKrzK5Fr7nNHZgP6sQ2hTUELTrLn25i8VW/g06MztD+FOe1gs0RYVpRkPlcrykf2hbJxNYra1c4OGg==
+"vue-async-computed@https://github.com/saraedum/vue-async-computed.git#5debb7dcd81f52183be55e05b866fc43278a990":
+  version "3.5.0"
+  resolved "https://github.com/saraedum/vue-async-computed.git#5debb7dcd81f52183be55e05b866fc43278a9905"
 
 vue-class-component@^7.0.1:
   version "7.0.2"

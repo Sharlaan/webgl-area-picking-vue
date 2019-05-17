@@ -1,8 +1,6 @@
 import isWebglEnabled from 'detector-webgl';
 import Vue from 'vue';
 import * as VueGL from 'vue-gl';
-// @ts-ignore
-// tslint:disable-next-line
 import App from './App.vue';
 import displayWebGLErrorMessage from './webglError';
 
