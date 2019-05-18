@@ -96,8 +96,7 @@
           <div class="section-title">
             <h3>Model</h3>
             <button type="button" @click="showColorPicker = !showColorPicker">
-              <span v-if="!showColorPicker">Color Picker</span>
-              <span v-else>Hide</span>
+              {{ !showColorPicker ? 'Color Picker' : 'Hide' }}
             </button>
           </div>
 

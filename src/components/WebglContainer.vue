@@ -1,12 +1,7 @@
 <template>
   <section class="webgl-container">
-    <div class="color-picker" v-if="showColorPicker">
-      <slider-picker :value="modelColor" @input="updateModelColor"></slider-picker>
-      <material-picker :value="modelColor" @input="updateModelColor"></material-picker>
-    </div>
-
-    <vgl-renderer ref="renderer" antialias style="height: 100%">
-      <vgl-scene name="scene">
+    <vgl-renderer ref="renderer" antialias>
+      <vgl-scene name="scene" ref="sceneRef">
         <!-- Model -->
         <vgl-geometry
           name="modelGeometry"
@@ -15,7 +10,7 @@
         ></vgl-geometry>
         <vgl-mesh-phong-material
           name="modelMaterial"
-          :color="modelColor"
+          :color="commonProps.modelColor"
           shininess="200"
           specular="#111111"
         ></vgl-mesh-phong-material>
@@ -65,84 +60,46 @@
       <vgl-perspective-camera
         name="cmr0"
         fov="35"
-        :zoom="zoom"
+        :zoom="commonProps.zoom"
         :orbit-target="modelPositionVector"
         :position="cameraPositionVector"
         :rotation="cameraRotationVector"
       ></vgl-perspective-camera>
 
-      <orbit-controls camera="cmr0"></orbit-controls>
+      <orbit-controls camera="cmr0" @onCameraUpdate="cameraChangeHandler"></orbit-controls>
       <!-- <pointer-lock-controls camera="cmr0" scene="scene"></pointer-lock-controls> -->
     </vgl-renderer>
   </section>
 </template>
 
 <script lang="ts">
-import VueAsyncComputed, { IAsyncComputedProperty } from 'vue-async-computed';
-import { Component, Prop, Vue } from 'vue-property-decorator';
-import { Material, Slider } from 'vue-color';
-import { BufferGeometry, LoadingManager, Vector3 } from 'three';
+import { Component, Model, Prop, Vue, Watch } from 'vue-property-decorator';
+import { BufferGeometry, Color, Fog, LoadingManager, Math as ThreeMath, Vector3 } from 'three';
+// @ts-ignore
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
-import { createDecorator, VueDecorator } from 'vue-class-component';
 
+import { CommonProps } from '../App.vue';
+// tslint:disable
 import OrbitControls from './OrbitControls.vue';
-
-Vue.use(VueAsyncComputed);
-
-type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
-
-function AsyncComputed<T>(computedOptions?: Omit<IAsyncComputedProperty<T>, 'get'>): VueDecorator {
-  return createDecorator((options, key) => {
-    options.asyncComputed = options.asyncComputed || {};
-    const method = options.methods![key];
-    options.asyncComputed[key] = {
-      get: method,
-      ...computedOptions,
-    } as IAsyncComputedProperty<T>;
-    delete options.methods![key];
-  });
-}
-
-interface IColors {
-  hex: string;
-  hsl: { [key in 'h' | 's' | 'l' | 'a']: number };
-  hsv: { [key in 'h' | 's' | 'v' | 'a']: number };
-  rgba: { [key in 'r' | 'g' | 'b' | 'a']: number };
-  a: number;
-}
-
-function initialState() {
-  return {
-    modelPosition: { x: 0, y: 0, z: 0 },
-    modelRotation: { x: 0, y: 0, z: 0 },
-    cameraPosition: { x: -2, y: 1, z: 3 },
-    cameraRotation: { x: 0, y: 0, z: 0 },
-  };
-}
+import AsyncComputed from "../typings/async-computed";
 
 @Component({
   components: {
     'orbit-controls': OrbitControls,
-    'material-picker': Material,
-    'slider-picker': Slider,
   },
 })
 export default class WebglContainer extends Vue {
-  // public geometry: { position: number[]; normal: number[]; } = { position: [], normal: [] };
-  public groundSize = 20;
-  public groundRotX = -Math.PI / 2;
-  public stlModelURL = 'https://threejs.org/examples/models/stl/ascii/slotted_disk.stl';
-  public modelColor = '#409DBF';
-  public showColorPicker = false;
-  public zoom = 1;
-  public modelPosition!: ReturnType<typeof initialState>['modelPosition'];
-  public modelRotation!: ReturnType<typeof initialState>['modelRotation'];
-  public cameraPosition!: ReturnType<typeof initialState>['cameraPosition'];
-  public cameraRotation!: ReturnType<typeof initialState>['cameraRotation'];
+  @Model() public commonProps!: CommonProps;
+  @Prop() public readonly groundSize!: number;
+  @Prop() public readonly stlModelURL!: string;
+
+  private readonly groundRotX: number = -Math.PI / 2;
+  private readonly fog: Fog = new Fog(0x72645b, 2, 15);
+  private readonly background: Color = new Color(0x72645b);
 
   public mounted() {
-    Object.assign(this, initialState());
-    // this.loadModel();
+    this.setSceneProps();
+    // console.log({ 'this.webglContainer': this });
   }
 
   // Computed
@@ -157,46 +114,42 @@ export default class WebglContainer extends Vue {
   }
 
   public get modelPositionVector() {
-    return this.modelPosition && new Vector3(
-      this.modelPosition.x,
-      this.modelPosition.y,
-      this.modelPosition.z,
+    return this.commonProps.modelPosition && new Vector3(
+      this.commonProps.modelPosition.x,
+      this.commonProps.modelPosition.y,
+      this.commonProps.modelPosition.z
     );
   }
 
   public get modelRotationVector() {
-    if (this.modelRotation) {
-      const { x, y, z } = this.modelRotation;
-      return `
-        ${this.degrees2radians(x)}
-        ${this.degrees2radians(y)}
-        ${this.degrees2radians(z)}
-      `;
+    if (this.commonProps.modelRotation) {
+      const { x, y, z } = this.commonProps.modelRotation;
+      return `${ThreeMath.degToRad(x)} ${ThreeMath.degToRad(y)} ${ThreeMath.degToRad(z)}`;
     }
   }
 
   public get cameraPositionVector() {
-    return this.cameraPosition && new Vector3(
-      this.cameraPosition.x,
-      this.cameraPosition.y,
-      this.cameraPosition.z,
+    return this.commonProps.cameraPosition && new Vector3(
+      this.commonProps.cameraPosition.x,
+      this.commonProps.cameraPosition.y,
+      this.commonProps.cameraPosition.z
     );
   }
 
   public get cameraRotationVector() {
-    if (this.cameraRotation) {
-      const { x, y, z } = this.cameraRotation;
-      return `
-        ${this.degrees2radians(x)}
-        ${this.degrees2radians(y)}
-        ${this.degrees2radians(z)}
-      `;
+    if (this.commonProps.cameraRotation) {
+      const { x, y, z } = this.commonProps.cameraRotation;
+      return `${ThreeMath.degToRad(x)} ${ThreeMath.degToRad(y)} ${ThreeMath.degToRad(z)}`;
     }
   }
 
   // Methods
-  public degrees2radians(degrees: number) {
-    return degrees * (Math.PI / 180);
+  public setSceneProps() {
+    console.log({ sceneRef: this.$refs.sceneRef }); // can access children
+    // @ts-ignore
+    this.$refs.sceneRef.inst.fog = this.fog;
+    // @ts-ignore
+    this.$refs.sceneRef.inst.background = this.background;
   }
 
   public rgb2hex(r: string, g: string, b: string) {
@@ -206,30 +159,14 @@ export default class WebglContainer extends Vue {
       .join('')}`;
   }
 
-  public updateModelColor(color: IColors) {
-    this.modelColor = color.hex;
+  public cameraChangeHandler({ position, rotation }: { [K: string]: Vector3 }) {
+    this.commonProps.cameraPosition.x = position.getComponent(0);
+    this.commonProps.cameraPosition.y = position.getComponent(1);
+    this.commonProps.cameraPosition.z = position.getComponent(2);
+    this.commonProps.cameraRotation.x = ThreeMath.radToDeg(rotation.getComponent(0));
+    this.commonProps.cameraRotation.y = ThreeMath.radToDeg(rotation.getComponent(1));
+    this.commonProps.cameraRotation.z = ThreeMath.radToDeg(rotation.getComponent(2));
   }
-
-  public reset() {
-    Object.assign(this, initialState());
-  }
-
-  // public loadModel() {
-  //   const onLoad = (bufferGeometry: BufferGeometry) => {
-  //     this.geometry = {
-  //       position: Array.from(bufferGeometry.attributes.position.array),
-  //       normal: Array.from(bufferGeometry.attributes.normal.array),
-  //     };
-  //     // hide loading component;
-  //   };
-  //   const onProgress = ({ loaded, total }: ProgressEvent) =>
-  //     // show loading component;
-  //     // tslint:disable-next-line:no-console
-  //     console.info('progress', ((loaded / total) * 100).toFixed(2) + '%');
-  //   const onError = (error: ErrorEvent) => console.error({ error });  // hide loading component;
-
-  //   new STLLoader().load(this.stlModelURL, onLoad, onProgress, onError);
-  // }
 
   @AsyncComputed({
     default: { position: [], normal: [] },
@@ -251,5 +188,12 @@ export default class WebglContainer extends Vue {
 }
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
+.webgl-container {
+  width: calc(100% - 250px);
+
+  & > div {
+    height: 100%;
+  }
+}
 </style>

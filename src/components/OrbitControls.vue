@@ -11,6 +11,7 @@
     @Inject() public readonly vglNamespace!: typeof VglNamespace;
 
     @Prop() public readonly camera!: Camera;
+    @Prop() public onCameraUpdate!: () => void;
 
     public get cmr() {
       // @ts-ignore
@@ -18,12 +19,20 @@
     }
 
     @Watch('cmr', { immediate: true })
-    public handler(cmr: Camera) {
+    public onCameraChanged(cmr: Camera) {
       // @ts-ignore
       const threeContainer = this.vglNamespace.renderers[0].inst.domElement;
       const controls = new OrbitControls(cmr, threeContainer);
       // @ts-ignore
-      controls.addEventListener('change', () => this.vglNamespace.update());
+      controls.addEventListener('change', () => {
+        const cmrPos = {
+          position: cmr.position,
+          rotation: cmr.rotation.toVector3(),
+        };
+        this.$emit('onCameraUpdate', cmrPos);
+        // @ts-ignore
+        this.vglNamespace.update();
+      });
     }
   }
 </script>
