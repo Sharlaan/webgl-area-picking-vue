@@ -15,6 +15,7 @@
           specular="#111111"
         ></vgl-mesh-phong-material>
         <vgl-mesh
+          ref="model"
           geometry="modelGeometry"
           material="modelMaterial"
           cast-shadow
@@ -37,6 +38,7 @@
           specular="#101010"
         ></vgl-mesh-phong-material>
         <vgl-mesh
+          ref="ground"
           geometry="groundGeometry"
           material="groundMaterial"
           receive-shadow
@@ -74,7 +76,21 @@
 
 <script lang="ts">
 import { Component, Model, Prop, Vue, Watch } from 'vue-property-decorator';
-import { BufferGeometry, Color, Fog, LoadingManager, Math as ThreeMath, Vector3 } from 'three';
+import {
+  BufferGeometry,
+  Color,
+  Fog,
+  Material,
+  Math as ThreeMath,
+  Object3D,
+  PerspectiveCamera,
+  Raycaster,
+  Renderer,
+  Scene,
+  Texture,
+  Vector2,
+  Vector3,
+} from 'three';
 // @ts-ignore
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 
@@ -83,10 +99,22 @@ import { CommonProps } from '../App.vue';
 import OrbitControls from './OrbitControls.vue';
 import AsyncComputed from "../typings/async-computed";
 
+const { degToRad, radToDeg } = ThreeMath;
+
+interface VglNamespace {
+  beforeRender(): void,
+  cameras?: { [name: string]: PerspectiveCamera },
+  geometries?: { [name: string]: BufferGeometry },
+  materials?: { [name: string]: Material },
+  object3ds?: { [name: string]: Object3D },
+  renderers?: object[],
+  scenes?: { [name: string]: Scene },
+  textures?: { [name: string]: Texture },
+  update(): void
+}
+
 @Component({
-  components: {
-    'orbit-controls': OrbitControls,
-  },
+  components: { OrbitControls },
 })
 export default class WebglContainer extends Vue {
   @Model() public commonProps!: CommonProps;
@@ -96,10 +124,21 @@ export default class WebglContainer extends Vue {
   private readonly groundRotX: number = -Math.PI / 2;
   private readonly fog: Fog = new Fog(0x72645b, 2, 15);
   private readonly background: Color = new Color(0x72645b);
+  private namespace: VglNamespace = { beforeRender: () => {}, update: () => {} };
+  private readonly raycaster = new Raycaster(); // Raycast (for interactions detection)
 
   public mounted() {
+    this.namespace = this.$refs.renderer.vglNamespace;
+    console.log({ namespace: this.namespace });
+
     this.setSceneProps();
-    // console.log({ 'this.webglContainer': this });
+
+    // DOM events listeners
+    const canvaGL = this.namespace.renderers[0].inst.domElement;
+    canvaGL.addEventListener("mousemove", this.onMouseMove, false);
+    ["mousedown", "mouseup"].forEach(type =>
+      canvaGL.addEventListener(type, this.onClick, false)
+    );
   }
 
   // Computed
@@ -114,42 +153,106 @@ export default class WebglContainer extends Vue {
   }
 
   public get modelPositionVector() {
-    return this.commonProps.modelPosition && new Vector3(
-      this.commonProps.modelPosition.x,
-      this.commonProps.modelPosition.y,
-      this.commonProps.modelPosition.z
-    );
+    if (this.commonProps.modelPosition) {
+        const { x, y, z } = this.commonProps.modelPosition;
+        return new Vector3(x, y, z);
+      }
   }
 
   public get modelRotationVector() {
     if (this.commonProps.modelRotation) {
-      const { x, y, z } = this.commonProps.modelRotation;
-      return `${ThreeMath.degToRad(x)} ${ThreeMath.degToRad(y)} ${ThreeMath.degToRad(z)}`;
-    }
+        const { x, y, z } = this.commonProps.modelRotation;
+        return `${degToRad(x)} ${degToRad(y)} ${degToRad(z)}`;
+      }
   }
 
   public get cameraPositionVector() {
-    return this.commonProps.cameraPosition && new Vector3(
-      this.commonProps.cameraPosition.x,
-      this.commonProps.cameraPosition.y,
-      this.commonProps.cameraPosition.z
-    );
+    if (this.commonProps.cameraPosition) {
+        const { x, y, z } = this.commonProps.cameraPosition;
+        return new Vector3(x, y, z);
+      }
   }
 
   public get cameraRotationVector() {
     if (this.commonProps.cameraRotation) {
-      const { x, y, z } = this.commonProps.cameraRotation;
-      return `${ThreeMath.degToRad(x)} ${ThreeMath.degToRad(y)} ${ThreeMath.degToRad(z)}`;
-    }
+        const { x, y, z } = this.commonProps.cameraRotation;
+        return `${degToRad(x)} ${degToRad(y)} ${degToRad(z)}`;
+      }
   }
 
   // Methods
-  public setSceneProps() {
-    console.log({ sceneRef: this.$refs.sceneRef }); // can access children
+  public cameraChangeHandler({ position, rotation }: { [K: string]: Vector3 }) {
+    const { cameraPosition, cameraRotation, zoom } = this.commonProps;
+    cameraPosition.x = position.getComponent(0);
+    cameraPosition.y = position.getComponent(1);
+    cameraPosition.z = position.getComponent(2);
+    cameraRotation.x = radToDeg(rotation.getComponent(0));
+    cameraRotation.y = radToDeg(rotation.getComponent(1));
+    cameraRotation.z = radToDeg(rotation.getComponent(2));
+  }
+
+  public getIntersection({ clientX, clientY, offsetX, offsetY, target }: MouseEvent) {
+    const { top, left } = (target as HTMLCanvasElement).getBoundingClientRect();
+    const x = clientX - left;
+    const y = clientY - top;
+    // const x = offsetX; // offsetX/Y works but are experimental
+    // const y = offsetY;
     // @ts-ignore
-    this.$refs.sceneRef.inst.fog = this.fog;
-    // @ts-ignore
-    this.$refs.sceneRef.inst.background = this.background;
+    const {
+      clientHeight,
+      clientWidth
+    } = this.namespace.renderers[0].inst.domElement as HTMLCanvasElement;
+    const mouseCoords = new Vector2();
+    const mouseX = (x / clientWidth) * 2 - 1;
+    const mouseY = -((y / clientHeight) * 2) + 1;
+    mouseCoords.set(mouseX, mouseY);
+    console.log({ mouseX, mouseY });
+    this.raycaster.setFromCamera(mouseCoords, this.namespace.cameras.cmr0);
+    // const Model = this.namespace.scenes.scene.getObjectByName("model"); // FIXME: does not work...
+    // const model = this.$refs.model.inst as Object3D; // does NOT work ??!
+    const model = this.$refs.ground.inst as Object3D; // works !?
+    console.log({ model, raycaster: this.raycaster });
+    return this.raycaster.intersectObject(model)[0];
+    // return this.raycaster.intersectObjects();
+  }
+
+  public onClick(event: MouseEvent) {
+    event.preventDefault();
+    const intersectionWithModel = this.getIntersection(event);
+    console.log({ intersectionWithModel });
+    if (intersectionWithModel) {
+      // Prevents camera moving while mouse dragging
+      // this.isControlsEnabled = !event.ctrlKey || event.type === "mouseup";
+      // event.type === "mousedown"
+      //   ? this.toggleSelections(event, intersectionWithModel.face)
+      //   : this.validateSelections(); // @ mouseup
+    } else {
+    }
+  }
+
+  public onMouseMove(event: MouseEvent) {
+    event.preventDefault();
+    // const targetPointer = this.scene.getObjectByName(
+    //   "Target Pointer"
+    // );
+    // const intersectionWithModel = this.getIntersection(event);
+    // // Add condition '&& event.ctrlKey' to show pointer and edges only whith Ctrl key down
+    // // TODO: add a config option for that ?
+    // if (intersectionWithModel) {
+    //   console.log({ intersectionWithModel });
+    //   this.showTargetPointer(
+    //     targetPointer,
+    //     intersectionWithModel.point,
+    //     intersectionWithModel.face.normal
+    //   );
+    //   this.toggleSelections(
+    //     event,
+    //     intersectionWithModel.face,
+    //     this.state.isSameFace
+    //   );
+    // } else {
+    //   targetPointer && (targetPointer.visible = false);
+    // }
   }
 
   public rgb2hex(r: string, g: string, b: string) {
@@ -159,13 +262,12 @@ export default class WebglContainer extends Vue {
       .join('')}`;
   }
 
-  public cameraChangeHandler({ position, rotation }: { [K: string]: Vector3 }) {
-    this.commonProps.cameraPosition.x = position.getComponent(0);
-    this.commonProps.cameraPosition.y = position.getComponent(1);
-    this.commonProps.cameraPosition.z = position.getComponent(2);
-    this.commonProps.cameraRotation.x = ThreeMath.radToDeg(rotation.getComponent(0));
-    this.commonProps.cameraRotation.y = ThreeMath.radToDeg(rotation.getComponent(1));
-    this.commonProps.cameraRotation.z = ThreeMath.radToDeg(rotation.getComponent(2));
+  public setSceneProps() {
+    console.log({ sceneRef: this.$refs.sceneRef }); // can access children
+    // @ts-ignore
+    this.$refs.sceneRef.inst.fog = this.fog;
+    // @ts-ignore
+    this.$refs.sceneRef.inst.background = this.background;
   }
 
   @AsyncComputed({
