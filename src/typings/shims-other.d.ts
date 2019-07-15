@@ -1,7 +1,5 @@
 declare module 'detector-webgl';
 
-export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
-
 // DeepReadOnly
 export type DeepReadOnly<T> =
     T extends Function ? T :

@@ -7,13 +7,13 @@
           name="modelGeometry"
           :position-attribute="geometry.position"
           :normal-attribute="geometry.normal"
-        ></vgl-geometry>
+        />
         <vgl-mesh-phong-material
           name="modelMaterial"
           :color="commonProps.modelColor"
           shininess="200"
           specular="#111111"
-        ></vgl-mesh-phong-material>
+        />
         <vgl-mesh
           ref="model"
           geometry="modelGeometry"
@@ -36,7 +36,7 @@
           name="groundMaterial"
           color="#999999"
           specular="#101010"
-        ></vgl-mesh-phong-material>
+        />
         <vgl-mesh
           ref="ground"
           geometry="groundGeometry"
@@ -51,25 +51,26 @@
             :divisions="groundSize"
             :color-center-line="colorCenterLine"
             :color-grid="colorGrid"
-          ></vgl-grid-helper>
+          />
         </vgl-mesh>
 
-        <vgl-hemisphere-light color="#443333" ground-color="#111122"></vgl-hemisphere-light>
-        <vgl-directional-light position="1 1 1" cast-shadow></vgl-directional-light>
-        <vgl-axes-helper :size="groundSize/2"></vgl-axes-helper>
+        <vgl-hemisphere-light color="#443333" ground-color="#111122" />
+        <vgl-directional-light position="1 1 1" cast-shadow />
+        <vgl-axes-helper :size="groundSize/2" />
       </vgl-scene>
 
       <vgl-perspective-camera
+        ref="cmr0"
         name="cmr0"
         fov="35"
         :zoom="commonProps.zoom"
         :orbit-target="modelPositionVector"
         :position="cameraPositionVector"
         :rotation="cameraRotationVector"
-      ></vgl-perspective-camera>
+      />
 
-      <orbit-controls camera="cmr0" @onCameraUpdate="cameraChangeHandler"></orbit-controls>
-      <!-- <pointer-lock-controls camera="cmr0" scene="scene"></pointer-lock-controls> -->
+      <orbit-controls camera="cmr0" @onCameraUpdate="cameraChangeHandler" />
+      <!-- <pointer-lock-controls camera="cmr0" scene="scene" /> -->
     </vgl-renderer>
   </section>
 </template>
@@ -77,7 +78,9 @@
 <script lang="ts">
 import { Component, Model, Prop, Vue, Watch } from 'vue-property-decorator';
 import {
+  ArrowHelper,
   BufferGeometry,
+  Camera,
   Color,
   Fog,
   Material,
@@ -124,7 +127,7 @@ export default class WebglContainer extends Vue {
   private readonly groundRotX: number = -Math.PI / 2;
   private readonly fog: Fog = new Fog(0x72645b, 2, 15);
   private readonly background: Color = new Color(0x72645b);
-  private namespace: VglNamespace = { beforeRender: () => {}, update: () => {} };
+  private namespace!: VglNamespace;
   private readonly raycaster = new Raycaster(); // Raycast (for interactions detection)
 
   public mounted() {
@@ -154,30 +157,32 @@ export default class WebglContainer extends Vue {
 
   public get modelPositionVector() {
     if (this.commonProps.modelPosition) {
-        const { x, y, z } = this.commonProps.modelPosition;
-        return new Vector3(x, y, z);
-      }
+      const { x, y, z } = this.commonProps.modelPosition;
+      // return new Vector3(x, y, z);
+      return `${x} ${y} ${z}`
+    }
   }
 
   public get modelRotationVector() {
     if (this.commonProps.modelRotation) {
-        const { x, y, z } = this.commonProps.modelRotation;
-        return `${degToRad(x)} ${degToRad(y)} ${degToRad(z)}`;
-      }
+      const { x, y, z } = this.commonProps.modelRotation;
+      return `${degToRad(x)} ${degToRad(y)} ${degToRad(z)}`;
+    }
   }
 
   public get cameraPositionVector() {
     if (this.commonProps.cameraPosition) {
-        const { x, y, z } = this.commonProps.cameraPosition;
-        return new Vector3(x, y, z);
-      }
+      const { x, y, z } = this.commonProps.cameraPosition;
+      // return new Vector3(x, y, z);
+      return `${x} ${y} ${z}`
+    }
   }
 
   public get cameraRotationVector() {
     if (this.commonProps.cameraRotation) {
-        const { x, y, z } = this.commonProps.cameraRotation;
-        return `${degToRad(x)} ${degToRad(y)} ${degToRad(z)}`;
-      }
+      const { x, y, z } = this.commonProps.cameraRotation;
+      return `${degToRad(x)} ${degToRad(y)} ${degToRad(z)}`;
+    }
   }
 
   // Methods
@@ -207,26 +212,35 @@ export default class WebglContainer extends Vue {
     const mouseY = -((y / clientHeight) * 2) + 1;
     mouseCoords.set(mouseX, mouseY);
     console.log({ mouseX, mouseY });
-    this.raycaster.setFromCamera(mouseCoords, this.namespace.cameras.cmr0);
+    // const cmr = this.namespace.cameras.cmr0;
+    const cmr = this.$refs.cmr0.inst as Camera;
+    this.raycaster.setFromCamera(mouseCoords, cmr);
+    const { direction, origin } = this.raycaster.ray;
+    const rayLength = origin.distanceTo(direction);
+    const arrowHelper = new ArrowHelper(direction, origin, rayLength);
+    arrowHelper.name = 'Ray Helper';
+    this.namespace.scenes.scene.add(arrowHelper);
     // const Model = this.namespace.scenes.scene.getObjectByName("model"); // FIXME: does not work...
     // const model = this.$refs.model.inst as Object3D; // does NOT work ??!
-    const model = this.$refs.ground.inst as Object3D; // works !?
-    console.log({ model, raycaster: this.raycaster });
-    return this.raycaster.intersectObject(model)[0];
+    const model = this.$refs.model.inst as Object3D; // works !?
+    console.log({ model, raycaster: this.raycaster.ray, rayLength: this.rayLength, rayDirection: this.rayDirection });
+    return this.raycaster.intersectObject(model, true);
     // return this.raycaster.intersectObjects();
   }
 
   public onClick(event: MouseEvent) {
     event.preventDefault();
-    const intersectionWithModel = this.getIntersection(event);
-    console.log({ intersectionWithModel });
-    if (intersectionWithModel) {
-      // Prevents camera moving while mouse dragging
-      // this.isControlsEnabled = !event.ctrlKey || event.type === "mouseup";
-      // event.type === "mousedown"
-      //   ? this.toggleSelections(event, intersectionWithModel.face)
-      //   : this.validateSelections(); // @ mouseup
-    } else {
+    if (event.type === 'mousedown' && !this.namespace.scenes.scene.getObjectByName("Ray Helper")) {
+      const intersectionWithModel = this.getIntersection(event);
+      console.log({ intersectionWithModel });
+      if (intersectionWithModel) {
+        // Prevents camera moving while mouse dragging
+        // this.isControlsEnabled = !event.ctrlKey || event.type === "mouseup";
+        // event.type === "mousedown"
+        //   ? this.toggleSelections(event, intersectionWithModel.face)
+        //   : this.validateSelections(); // @ mouseup
+      } else {
+      }
     }
   }
 

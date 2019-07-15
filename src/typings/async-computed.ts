@@ -1,9 +1,6 @@
 import Vue from 'vue';
 import VueAsyncComputed, { IAsyncComputedProperty } from 'vue-async-computed';
 import { createDecorator, VueDecorator } from 'vue-class-component';
-// tslint:disable
-import { Omit } from './shims-other';
-
 
 Vue.use(VueAsyncComputed);
 
