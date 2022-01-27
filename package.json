@@ -12,7 +12,7 @@
     "core-js": "2.6.5",
     "detector-webgl": "^2.0.0",
     "lodash.clonedeep": "^4.5.0",
-    "three": "^0.106.2",
+    "three": "^0.137.0",
     "vue": "^2.6.10",
     "vue-async-computed": "saraedum/vue-async-computed#0e6fa13",
     "vue-class-component": "^7.1.0",
